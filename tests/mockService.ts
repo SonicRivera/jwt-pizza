@@ -10,8 +10,9 @@ export async function mockService(page: Page) {
   let user: typeof users[number] | null = null;
   const franchises = [{ id: '1', name: 'LotaPizza', admins: [{ email: 'f@jwt.com', name: 'Fran Owner' }], stores: [{ id: '4', name: 'Lehi', totalRevenue: 12 }] }];
   const orders: any[] = [];
+  const passwords = new Map(users.map(u => [u.id, 'test-password']));
   const calls: { method: string; path: string; body: any }[] = [];
-  const state = { paymentFails: false, verificationFails: false };
+  const state = { paymentFails: false, verificationFails: false, updateFails: false, deleteFails: false, listFails: false };
   await page.route('**/api/**', async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -25,7 +26,7 @@ export async function mockService(page: Page) {
       if (method === 'PUT') {
         expect(Object.keys(body).sort()).toEqual(['email', 'password']);
         user = users.find(u => u.email === body.email) || null;
-        if (!user || body.password !== 'test-password') return send({ message: 'Invalid credentials' }, 401);
+        if (!user || body.password !== passwords.get(user.id)) return send({ message: 'Invalid credentials' }, 401);
       } else if (method === 'POST') {
         expect(body).toEqual({ name: 'New Diner', email: 'new@jwt.com', password: 'test-password' });
         user = { ...users[0], name: body.name, email: body.email };
@@ -33,6 +34,31 @@ export async function mockService(page: Page) {
       return send({ user, token: 'mock-token' });
     }
     if (path === '/api/user/me' && method === 'GET') return send(user || { message: 'Expired session' }, user ? 200 : 401);
+    if (path === '/api/user' && method === 'GET') {
+      if (state.listFails) return send({ message: 'Unable to load users' }, 500);
+      const filter = (url.searchParams.get('name') || '*').replace(/\*/g, '').toLowerCase();
+      const matches = users.filter(u => u.name.toLowerCase().includes(filter));
+      const offset = Number(url.searchParams.get('page')) * Number(url.searchParams.get('limit'));
+      const limit = Number(url.searchParams.get('limit'));
+      return send({ users: matches.slice(offset, offset + limit), more: matches.length > offset + limit });
+    }
+    if (/^\/api\/user\/\w+$/.test(path)) {
+      const index = users.findIndex(u => u.id === path.split('/').pop());
+      if (method === 'PUT') {
+        if (state.updateFails) return send({ message: 'Update failed' }, 500);
+        const { password, ...profile } = body;
+        users[index] = { ...users[index], ...profile };
+        if (password) passwords.set(users[index].id, password);
+        user = users[index];
+        return send({ user, token: 'updated-token' });
+      }
+      if (method === 'DELETE') {
+        if (state.deleteFails) return send({ message: 'Delete failed' }, 500);
+        users.splice(index, 1);
+        if (user?.id === path.split('/').pop()) user = null;
+        return send({ message: 'user deleted' });
+      }
+    }
     if (path === '/api/order/menu' && method === 'GET') return send([
       { id: '1', title: 'Veggie', image: 'pizza1.png', price: 0.0038, description: 'A garden of delight' },
       { id: '2', title: 'Pepperoni', image: 'pizza2.png', price: 0.0042, description: 'Spicy treat' },
@@ -51,7 +77,7 @@ export async function mockService(page: Page) {
       return state.verificationFails ? send({ message: 'invalid' }, 400) : send({ message: 'valid', payload: { orderId: '23' } });
     }
     if (path === '/api/franchise' && method === 'GET') {
-      const filter = (url.searchParams.get('name') || '*').replaceAll('*', '').toLowerCase();
+      const filter = (url.searchParams.get('name') || '*').replace(/\*/g, '').toLowerCase();
       return send({ franchises: franchises.filter(f => f.name.toLowerCase().includes(filter)), more: false });
     }
     if (path === '/api/franchise' && method === 'POST') {
@@ -78,7 +104,7 @@ export async function mockService(page: Page) {
     if (path === '/api/docs' && method === 'GET') return send({ endpoints: [{ requiresAuth: true, method: 'GET', path: '/api/order', description: 'Order history', example: 'GET /api/order', response: { orders: [] } }] });
     throw new Error(`Unmocked endpoint: ${method} ${path}`);
   });
-  return { calls, state };
+  return { calls, state, users };
 }
 
 export async function login(page: Page, email = 'd@jwt.com') {

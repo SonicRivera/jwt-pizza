@@ -117,10 +117,10 @@ test('admin filters, creates and closes franchises and closes stores', async ({ 
   await page.goto('/login');
   await login(page, 'a@jwt.com');
   await page.getByRole('link', { name: 'Admin', exact: true }).click();
-  await expect(page.locator('tbody')).toContainText('LotaPizza');
+  await expect(page.getByRole('table', { name: 'Franchises' }).locator('tbody')).toContainText('LotaPizza');
   await page.getByPlaceholder('Filter franchises').fill('absent');
   await page.getByRole('button', { name: 'Submit' }).click();
-  await expect(page.locator('tbody')).toHaveCount(0);
+  await expect(page.getByRole('table', { name: 'Franchises' }).locator('tbody')).toHaveCount(0);
   await page.getByPlaceholder('Filter franchises').fill('');
   await page.getByRole('button', { name: 'Submit' }).click();
   await page.getByRole('row').filter({ hasText: 'Lehi' }).getByRole('button', { name: 'Close' }).click();
@@ -130,10 +130,10 @@ test('admin filters, creates and closes franchises and closes stores', async ({ 
   await page.getByPlaceholder('franchise name').fill('New Pizza');
   await page.getByPlaceholder('franchisee admin email').fill('f@jwt.com');
   await page.getByRole('button', { name: 'Create', exact: true }).click();
-  await expect(page.locator('tbody')).toContainText(['LotaPizza', 'New Pizza']);
+  await expect(page.getByRole('table', { name: 'Franchises' }).locator('tbody')).toContainText(['LotaPizza', 'New Pizza']);
   await page.getByRole('row').filter({ hasText: 'New Pizza' }).getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('main')).toContainText('New Pizza');
   await page.getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.locator('tbody')).toHaveCount(1);
-  await expect(page.locator('tbody')).toContainText('LotaPizza');
+  await expect(page.getByRole('table', { name: 'Franchises' }).locator('tbody')).toHaveCount(1);
+  await expect(page.getByRole('table', { name: 'Franchises' }).locator('tbody')).toContainText('LotaPizza');
 });

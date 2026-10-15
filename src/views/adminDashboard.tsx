@@ -6,9 +6,11 @@ import Button from '../components/button';
 import { pizzaService } from '../service/service';
 import { Franchise, FranchiseList, Role, Store, User } from '../service/pizzaService';
 import { TrashIcon } from '../icons';
+import UserManagement from '../components/userManagement';
 
 interface Props {
   user: User | null;
+  setUser: (user: User | null) => void;
 }
 
 export default function AdminDashboard(props: Props) {
@@ -50,7 +52,7 @@ export default function AdminDashboard(props: Props) {
               <div className="-m-1.5 overflow-x-auto">
                 <div className="p-1.5 min-w-full inline-block align-middle">
                   <div className="overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
+                    <table aria-label="Franchises" className="min-w-full divide-y divide-gray-200">
                       <thead className="uppercase text-neutral-100 bg-slate-400 border-b-2 border-gray-500">
                         <tr>
                           {['Franchise', 'Franchisee', 'Store', 'Revenue', 'Action'].map((header) => (
@@ -123,6 +125,7 @@ export default function AdminDashboard(props: Props) {
         <div>
           <Button className="w-36 text-xs sm:text-sm sm:w-64" title="Add Franchise" onPress={createFranchise} />
         </div>
+        <UserManagement user={props.user} setUser={props.setUser} />
       </View>
     );
   }

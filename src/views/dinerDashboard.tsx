@@ -3,18 +3,41 @@ import { Link } from 'react-router-dom';
 import View from './view';
 import { pizzaService } from '../service/service';
 import { Order, OrderHistory, Role, User } from '../service/pizzaService';
+import Button from '../components/button';
+import UserDialog from '../components/userDialog';
 
 interface Props {
   user: User | null;
+  setUser: (user: User) => void;
 }
 
 export default function DinerDashboard(props: Props) {
   const user = props.user || ({} as User);
   const [orders, setOrders] = React.useState<Order[]>([]);
+  const [editing, setEditing] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [message, setMessage] = React.useState('');
+
+  async function updateUser(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const fields = new FormData(event.currentTarget);
+    const password = String(fields.get('password'));
+    const updatedUser = { id: user.id, roles: user.roles, name: String(fields.get('name')).trim(), email: String(fields.get('email')).trim(), ...(password ? { password } : {}) };
+    setSaving(true);
+    setMessage('');
+    try {
+      props.setUser(await pizzaService.updateUser(updatedUser));
+      setEditing(false);
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   React.useEffect(() => {
     (async () => {
-      if (user) {
+      if (props.user) {
         const r: OrderHistory = await pizzaService.getOrders(user);
         setOrders(r.orders);
       }
@@ -35,6 +58,8 @@ export default function DinerDashboard(props: Props) {
         <div className="hs-tooltip inline-block">
           <img className="hs-tooltip-toggle relative inline-block size-[96px] rounded-full ring-2 ring-white hover:z-10" src="https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=facearea&facepad=2&w=300&h=300&q=80" alt="Employee stock photo" />
         </div>
+
+        <Button title="Edit" className="w-16 p-0" onPress={() => { setMessage(''); setEditing(true); }} />
 
         <div className="my-4 text-lg text-orange-200 text-start grid grid-cols-5 gap-2">
           <div className="font-semibold text-orange-400">name:</div> <div className="col-span-4">{user.name}</div>
@@ -99,6 +124,26 @@ export default function DinerDashboard(props: Props) {
           </>
         )}
       </div>
+      {editing && (
+        <UserDialog title="Edit user" busy={saving} onCancel={() => setEditing(false)}>
+          <form onSubmit={updateUser}>
+            <fieldset disabled={saving} className="p-4 grid grid-cols-5 gap-3 items-center">
+              <label htmlFor="edit-name" className="font-semibold">Name</label>
+              <input id="edit-name" name="name" required pattern=".*\S.*" autoComplete="name" defaultValue={user.name} className="col-span-4 border rounded-md p-2" />
+              <label htmlFor="edit-email" className="font-semibold">Email</label>
+              <input id="edit-email" name="email" type="email" required autoComplete="email" defaultValue={user.email} className="col-span-4 border rounded-md p-2" />
+              <label htmlFor="edit-password" className="font-semibold">Password</label>
+              <input id="edit-password" name="password" type="password" autoComplete="new-password" className="col-span-4 border rounded-md p-2" />
+              <p className="col-span-5 text-sm">Leave the password blank to keep your current password.</p>
+            </fieldset>
+            {message && <p role="alert" className="px-4 pb-4 text-red-700">{message}</p>}
+            <div className="flex justify-end gap-3 p-4 border-t bg-slate-200">
+              <button type="button" disabled={saving} onClick={() => setEditing(false)} className="rounded-lg border px-3 py-2 bg-white">Cancel</button>
+              <button type="submit" disabled={saving} className="rounded-lg px-3 py-2 bg-orange-600 text-white">{saving ? 'Updating…' : 'Update'}</button>
+            </div>
+          </form>
+        </UserDialog>
+      )}
     </View>
   );
 }
